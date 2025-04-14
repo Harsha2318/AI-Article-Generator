@@ -1,0 +1,14 @@
+fastapi>=0.109.2
+uvicorn>=0.27.1
+python-dotenv>=1.0.1
+google-generativeai>=0.3.2
+langchain>=0.1.9
+langchain-google-genai>=0.0.7
+newspaper3k>=0.2.8
+trafilatura>=1.6.3
+beautifulsoup4>=4.12.3
+aiohttp>=3.9.3
+requests>=2.31.0
+python-multipart>=0.0.9
+pydantic>=2.6.1
+markdown>=3.5.2
