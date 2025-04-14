@@ -19,8 +19,20 @@ import logging
 import time
 import aiohttp
 import asyncio
-from typing import List, Optional
+from typing import List, Optional, Dict
 import json
+from datetime import datetime
+import phoenix as px
+from phoenix.otel import register
+from openinference.instrumentation.langchain import LangChainInstrumentor
+from phoenix.evals import (
+    HallucinationEvaluator,
+    RelevanceEvaluator,
+    ToxicityEvaluator
+)
+import atexit
+import signal
+import sys
 
 # Load environment variables
 load_dotenv()
@@ -46,7 +58,6 @@ try:
         model="gemini-2.0-flash",
         google_api_key=gemini_api_key,
         temperature=0.7,
-        convert_system_message_to_human=True,
         model_kwargs={
             "generation_config": {
                 "max_output_tokens": 2048,
@@ -60,6 +71,40 @@ try:
 except Exception as e:
     logger.error(f"Error initializing Gemini API: {str(e)}")
     raise
+
+# Configure Phoenix with a different port
+os.environ["PHOENIX_COLLECTOR_ENDPOINT"] = "http://localhost:6006"
+os.environ["PHOENIX_GRPC_PORT"] = "6007"
+
+# Initialize Phoenix session
+session = px.Session(
+    project_name="ai-article-generator",
+    description="AI Article Generator with Phoenix monitoring"
+)
+
+# Initialize evaluators
+hallucination_evaluator = HallucinationEvaluator(llm=llm)
+relevance_evaluator = RelevanceEvaluator(llm=llm)
+toxicity_evaluator = ToxicityEvaluator(llm=llm)
+
+# Instrument LangChain with Phoenix using OpenInference
+tracer_provider = register()
+LangChainInstrumentor().instrument(tracer_provider=tracer_provider)
+
+# Register cleanup handlers
+def cleanup_phoenix():
+    try:
+        session.end()
+    except Exception as e:
+        logger.error(f"Error cleaning up Phoenix: {str(e)}")
+
+def signal_handler(signum, frame):
+    cleanup_phoenix()
+    sys.exit(0)
+
+atexit.register(cleanup_phoenix)
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 # Add CORS middleware
 app.add_middleware(
@@ -170,72 +215,117 @@ def fact_check_content(content: str) -> str:
         logger.error(f"Error in fact_check_content: {str(e)}")
         raise
 
-def generate_article(topic: str, research: str, fact_check: str, include_code: bool, include_diagrams: bool) -> str:
+def generate_article(topic: str, research: str, fact_check: str, include_code: bool, include_diagrams: bool) -> Dict:
     try:
-        code_requirement = "6. Include relevant code snippets with explanations" if include_code else ""
-        diagram_requirement = """7. Include Mermaid.js diagrams for technical concepts. Use the following format:
-```mermaid
-graph TD
-    A[Start] --> B[Process]
-    B --> C[End]
-```
-For flowcharts, use:
-```mermaid
-flowchart TD
-    A[Start] --> B[Process]
-    B --> C[End]
-```
-For sequence diagrams, use:
-```mermaid
-sequenceDiagram
-    Alice->>John: Hello John, how are you?
-    John-->>Alice: Great!
-```
-""" if include_diagrams else ""
+        # Create the prompt template
+        template = """
+        Write a comprehensive, SEO-optimized article about: {topic}
+        
+        Research findings:
+        {research}
+        
+        Fact-checking results:
+        {fact_check}
+        
+        Requirements:
+        1. Use Markdown formatting with proper heading hierarchy (#, ##, ###)
+        2. Start with an engaging meta description
+        3. Include a clear introduction and conclusion
+        4. Use bullet points and numbered lists where appropriate
+        5. Include relevant statistics and quotes
+        """
+        
+        # Add code requirement if needed
+        if include_code:
+            template += "\n6. Include relevant code snippets with explanations"
+            
+        # Add diagram requirement if needed
+        if include_diagrams:
+            template += """
+            7. Include Mermaid.js diagrams for technical concepts. Use the following format:
+            ```mermaid
+            graph TD
+                A[Start] --> B[Process]
+                B --> C[End]
+            ```
+            For flowcharts, use:
+            ```mermaid
+            flowchart TD
+                A[Start] --> B[Process]
+                B --> C[End]
+            ```
+            For sequence diagrams, use:
+            ```mermaid
+            sequenceDiagram
+                Alice->>John: Hello John, how are you?
+                John-->>Alice: Great!
+            ```
+            """
+            
+        template += """
+        
+        Structure:
+        - H1: SEO-optimized title
+        - Meta description
+        - Introduction
+        - Main sections (H2)
+        - Subsections (H3)
+        - Conclusion
+        - References and sources
+        
+        Format the response in clean markdown with proper spacing and formatting.
+        """
         
         prompt = PromptTemplate(
-            input_variables=["topic", "research", "fact_check", "code_requirement", "diagram_requirement"],
-            template="""
-            Write a comprehensive, SEO-optimized article about: {topic}
-            
-            Research findings:
-            {research}
-            
-            Fact-checking results:
-            {fact_check}
-            
-            Requirements:
-            1. Use Markdown formatting with proper heading hierarchy (#, ##, ###)
-            2. Start with an engaging meta description
-            3. Include a clear introduction and conclusion
-            4. Use bullet points and numbered lists where appropriate
-            5. Include relevant statistics and quotes
-            {code_requirement}
-            {diagram_requirement}
-            
-            Structure:
-            - H1: SEO-optimized title
-            - Meta description
-            - Introduction
-            - Main sections (H2)
-            - Subsections (H3)
-            - Conclusion
-            - References and sources
-            
-            Format the response in clean markdown with proper spacing and formatting.
-            """
+            input_variables=["topic", "research", "fact_check"],
+            template=template
         )
+        
         chain = LLMChain(llm=llm, prompt=prompt)
         response = chain.invoke({
             "topic": topic,
             "research": research,
-            "fact_check": fact_check,
-            "code_requirement": code_requirement,
-            "diagram_requirement": diagram_requirement
+            "fact_check": fact_check
         })
+        
         if not response or "text" not in response:
             raise ValueError("Invalid response from article generation chain")
-        return response["text"]
+        
+        article_text = response["text"]
+        
+        # Evaluate the generated article
+        try:
+            # Convert research to a dictionary for evaluation
+            research_dict = {"text": research}
+            hallucination_score = hallucination_evaluator.evaluate(article_text, research_dict)
+            relevance_score = relevance_evaluator.evaluate(article_text, {"topic": topic})
+            toxicity_score = toxicity_evaluator.evaluate(article_text)
+        except Exception as e:
+            logger.error(f"Error in evaluation: {str(e)}")
+            hallucination_score = 0.0
+            relevance_score = 0.0
+            toxicity_score = 0.0
+        
+        # Log evaluation metrics
+        evaluation_metrics = {
+            "hallucination_score": hallucination_score,
+            "relevance_score": relevance_score,
+            "toxicity_score": toxicity_score,
+            "timestamp": datetime.now().isoformat(),
+            "topic": topic,
+            "article_length": len(article_text),
+            "word_count": len(article_text.split()),
+            "has_code_snippets": include_code,
+            "has_diagrams": include_diagrams
+        }
+        
+        # Log evaluation metrics
+        logger.info(f"Article Evaluation Metrics: {json.dumps(evaluation_metrics, indent=2)}")
+        
+        return {
+            "text": article_text,
+            "metrics": evaluation_metrics
+        }
     except Exception as e:
         logger.error(f"Error in generate_article: {str(e)}")
         raise
@@ -281,7 +371,7 @@ async def create_article(request: ArticleRequest):
         # Article generation phase
         logger.info("Starting article generation phase...")
         try:
-            article_content = generate_article(
+            result = generate_article(
                 topic=topic,
                 research=research_result,
                 fact_check=fact_check_result,
@@ -293,25 +383,21 @@ async def create_article(request: ArticleRequest):
             logger.error(f"Error in article generation phase: {str(e)}")
             raise
         
-        # Calculate basic metrics
-        metrics = {
-            "factual_accuracy": 0.9,
-            "completeness": 0.85,
-            "relevance": 0.95
-        }
+        # Calculate processing time
+        processing_time = time.time() - start_time
         
         return {
             "status": "success",
-            "topic": topic,
-            "article": article_content,
+            "article": result["text"],
+            "metrics": {
+                **result["metrics"],
+                "processing_time": processing_time
+            },
             "research": research_result,
-            "fact_check": fact_check_result,
-            "time_taken": f"{time.time() - start_time:.2f} seconds",
-            "metrics": metrics
+            "fact_check": fact_check_result
         }
-        
     except Exception as e:
-        logger.error(f"Error generating article: {str(e)}")
+        logger.error(f"Error in create_article: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/", response_class=HTMLResponse)

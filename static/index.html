@@ -4,206 +4,293 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Article Generator</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f0f0f0;
+        .loading-spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 4px solid #3498db;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
         }
-        .container {
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .article-content {
             max-width: 800px;
             margin: 0 auto;
-            background-color: white;
-            padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        h1 {
-            color: #333;
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .test-button {
-            display: block;
-            width: 200px;
-            margin: 20px auto;
-            padding: 10px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .test-button:hover {
-            background-color: #45a049;
-        }
-        #result {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        .loading {
-            display: none;
-            text-align: center;
-            margin: 20px 0;
-        }
-        .article-container {
-            margin-top: 20px;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        .research-section, .fact-check-section {
-            margin-top: 20px;
-            padding: 15px;
+        .article-content pre {
             background-color: #f8f9fa;
-            border-radius: 5px;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
         }
-        .research-section {
-            margin-top: 20px;
-            padding: 20px;
+        .article-content code {
             background-color: #f8f9fa;
-            border-radius: 5px;
-            border-left: 4px solid #007bff;
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
         }
-        .research-section h3 {
-            color: #007bff;
-            margin-bottom: 15px;
-        }
-        .research-section h4 {
-            color: #495057;
-            margin-top: 20px;
-            margin-bottom: 10px;
-        }
-        .research-section ul {
-            padding-left: 20px;
-        }
-        .research-section li {
-            margin-bottom: 10px;
-        }
-        .research-section .source {
-            font-style: italic;
-            color: #6c757d;
-            margin-left: 20px;
+        .article-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
         }
         .mermaid {
-            margin: 20px 0;
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 200px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        /* Add markdown styling */
+        .markdown-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        .markdown-content h1 {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 1em 0;
+        }
+        .markdown-content h2 {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin: 0.83em 0;
+        }
+        .markdown-content h3 {
+            font-size: 1.17em;
+            font-weight: bold;
+            margin: 0.67em 0;
+        }
+        .markdown-content p {
+            margin: 1em 0;
+            line-height: 1.6;
+        }
+        .markdown-content ul, .markdown-content ol {
+            margin: 1em 0;
+            padding-left: 2em;
+        }
+        .markdown-content li {
+            margin: 0.5em 0;
+        }
+        .markdown-content code {
+            background-color: #f8f9fa;
+            padding: 0.2em 0.4em;
+            border-radius: 0.25em;
+            font-family: monospace;
+        }
+        .markdown-content pre {
+            background-color: #f8f9fa;
+            padding: 1em;
+            border-radius: 0.5em;
+            overflow-x: auto;
+            margin: 1em 0;
+        }
+        .markdown-content blockquote {
+            border-left: 4px solid #ddd;
+            padding-left: 1em;
+            margin: 1em 0;
+            color: #666;
+        }
+        .markdown-content img {
+            max-width: 100%;
+            height: auto;
+            margin: 1em 0;
+            border-radius: 0.5em;
+        }
+        .markdown-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1em 0;
+        }
+        .markdown-content th, .markdown-content td {
+            border: 1px solid #ddd;
+            padding: 0.5em;
+            text-align: left;
+        }
+        .markdown-content th {
+            background-color: #f8f9fa;
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>AI Article Generator</h1>
-        
-        <div class="card mb-4">
-            <div class="card-body">
-                <h5 class="card-title">Test API Connection</h5>
-                <button class="test-button" onclick="testAPI()">Test API</button>
-                <div id="testResult" class="mt-2"></div>
-            </div>
-        </div>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">AI Article Generator</h1>
+            <p class="text-gray-600">Generate well-structured, SEO-optimized articles with AI</p>
+        </header>
 
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Generate Article</h5>
-                <form id="articleForm">
-                    <div class="form-group">
-                        <label for="topic">Topic</label>
-                        <input type="text" class="form-control" id="topic" required>
+        <!-- Main Content -->
+        <div class="max-w-4xl mx-auto">
+            <!-- Input Form -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <form id="articleForm" class="space-y-6">
+                    <div>
+                        <label for="topic" class="block text-sm font-medium text-gray-700 mb-1">
+                            Topic or URL
+                            <span class="tooltip">
+                                <i class="fas fa-info-circle text-blue-500 ml-1"></i>
+                                <span class="tooltiptext">Enter a topic or paste a URL to generate an article</span>
+                            </span>
+                        </label>
+                        <input type="text" id="topic" name="topic" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Enter a topic or paste a URL">
                     </div>
-                    <div class="form-check mb-3">
-                        <input type="checkbox" class="form-check-input" id="includeCode">
-                        <label class="form-check-label" for="includeCode">Include Code Snippets</label>
+
+                    <div class="flex flex-wrap gap-4">
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" id="includeCode" name="includeCode"
+                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <span class="text-sm text-gray-700">Include Code Snippets</span>
+                        </label>
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" id="includeDiagrams" name="includeDiagrams"
+                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <span class="text-sm text-gray-700">Include Diagrams</span>
+                        </label>
                     </div>
-                    <div class="form-check mb-3">
-                        <input type="checkbox" class="form-check-input" id="includeDiagrams">
-                        <label class="form-check-label" for="includeDiagrams">Include Diagrams</label>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Generate Article</button>
+
+                    <button type="submit"
+                        class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200">
+                        Generate Article
+                    </button>
                 </form>
             </div>
-        </div>
 
-        <div id="loading" class="loading">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+            <!-- Loading State -->
+            <div id="loading" class="hidden text-center py-8">
+                <div class="loading-spinner mx-auto mb-4"></div>
+                <p class="text-gray-600">Generating your article...</p>
             </div>
-            <p>Generating your article...</p>
-        </div>
 
-        <div id="errorMessage" class="alert alert-danger" style="display: none;"></div>
+            <!-- Error Message -->
+            <div id="error" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-8"></div>
 
-        <div id="researchSection" class="research-section" style="display: none;">
-            <h3>Research Findings</h3>
-            <div id="researchContent" class="markdown-content"></div>
-        </div>
-
-        <div id="factCheckSection" class="fact-check-section" style="display: none;">
-            <h3>Fact-Checking Results</h3>
-            <div id="factCheckContent"></div>
-        </div>
-
-        <div id="articleResult" class="article-container" style="display: none;">
-            <h2>Generated Article</h2>
-            <div id="articleContent"></div>
-            <div id="timeTaken" class="text-muted mt-2"></div>
+            <!-- Generated Article -->
+            <div id="article" class="hidden bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">Generated Article</h2>
+                    <div class="flex space-x-2">
+                        <button onclick="copyArticle()" class="text-gray-600 hover:text-gray-800">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                        <button onclick="downloadArticle()" class="text-gray-600 hover:text-gray-800">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                    </div>
+                </div>
+                <div id="articleContent" class="article-content markdown-content"></div>
+                
+                <!-- Evaluation Metrics -->
+                <div id="metrics" class="mt-8 p-4 bg-gray-50 rounded-lg">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Evaluation Metrics</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-white p-4 rounded-lg shadow-sm">
+                            <div class="text-sm text-gray-600">Hallucination Score</div>
+                            <div id="hallucinationScore" class="text-2xl font-bold text-blue-600">-</div>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg shadow-sm">
+                            <div class="text-sm text-gray-600">Relevance Score</div>
+                            <div id="relevanceScore" class="text-2xl font-bold text-green-600">-</div>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg shadow-sm">
+                            <div class="text-sm text-gray-600">Toxicity Score</div>
+                            <div id="toxicityScore" class="text-2xl font-bold text-red-600">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        // Initialize Mermaid with better configuration
+        // Initialize Mermaid
         mermaid.initialize({
             startOnLoad: true,
             theme: 'default',
             securityLevel: 'loose',
             flowchart: {
-                useMaxWidth: true,
+                useMaxWidth: false,
                 htmlLabels: true,
                 curve: 'basis'
             }
         });
 
+        // Configure marked for markdown rendering
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            headerIds: true,
+            mangle: false
+        });
+
         // Function to render Mermaid diagrams
-        async function renderMermaidDiagrams() {
-            const diagrams = document.querySelectorAll('.mermaid');
-            for (const diagram of diagrams) {
+        function renderMermaidDiagrams() {
+            const mermaidElements = document.querySelectorAll('.mermaid');
+            mermaidElements.forEach(element => {
                 try {
-                    const { svg } = await mermaid.render('mermaid-' + Math.random(), diagram.textContent);
-                    diagram.innerHTML = svg;
-                } catch (error) {
-                    console.error('Error rendering Mermaid diagram:', error);
-                    diagram.innerHTML = `<div class="alert alert-warning">Error rendering diagram: ${error.message}</div>`;
+                    mermaid.init(undefined, element);
+                } catch (e) {
+                    console.error('Error rendering Mermaid diagram:', e);
                 }
-            }
+            });
         }
 
-        async function testAPI() {
-            try {
-                const response = await fetch('http://localhost:8000/test');
-                const data = await response.json();
-                document.getElementById('testResult').innerHTML = `
-                    <div class="alert alert-success">
-                        Status: ${response.status}<br>
-                        Message: ${data.message}
-                    </div>
-                `;
-            } catch (error) {
-                document.getElementById('testResult').innerHTML = `
-                    <div class="alert alert-danger">
-                        Error: ${error.message}
-                    </div>
-                `;
-            }
+        // Function to copy article content
+        function copyArticle() {
+            const articleContent = document.getElementById('articleContent').innerText;
+            navigator.clipboard.writeText(articleContent).then(() => {
+                alert('Article copied to clipboard!');
+            });
         }
 
+        // Function to download article
+        function downloadArticle() {
+            const articleContent = document.getElementById('articleContent').innerText;
+            const blob = new Blob([articleContent], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'generated-article.md';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Handle form submission
         document.getElementById('articleForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -211,67 +298,60 @@
             const includeCode = document.getElementById('includeCode').checked;
             const includeDiagrams = document.getElementById('includeDiagrams').checked;
             
-            // Show loading and hide other sections
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('articleResult').style.display = 'none';
-            document.getElementById('researchSection').style.display = 'none';
-            document.getElementById('factCheckSection').style.display = 'none';
-            document.getElementById('errorMessage').style.display = 'none';
-
+            // Show loading state
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('error').classList.add('hidden');
+            document.getElementById('article').classList.add('hidden');
+            
             try {
-                const response = await fetch('http://localhost:8000/generate-article', {
+                const response = await fetch('/generate-article', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        topic: topic,
-                        is_url: false,
+                        topic,
                         include_code: includeCode,
                         include_diagrams: includeDiagrams
-                    })
+                    }),
                 });
-
+                
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-
+                
                 const data = await response.json();
                 
-                if (data.status === 'success') {
-                    // Display research findings with proper formatting
-                    const researchContent = document.getElementById('researchContent');
-                    researchContent.innerHTML = marked.parse(data.research);
-                    
-                    // Add source styling
-                    const sources = researchContent.querySelectorAll('a');
-                    sources.forEach(source => {
-                        source.classList.add('source');
-                    });
-                    
-                    document.getElementById('researchSection').style.display = 'block';
-
-                    // Display fact-checking results
-                    document.getElementById('factCheckContent').innerHTML = marked.parse(data.fact_check);
-                    document.getElementById('factCheckSection').style.display = 'block';
-
-                    // Display the article
-                    document.getElementById('articleContent').innerHTML = marked.parse(data.article);
-                    document.getElementById('timeTaken').textContent = `Time taken: ${data.time_taken}`;
-                    document.getElementById('articleResult').style.display = 'block';
-
-                    // Render Mermaid diagrams
-                    await renderMermaidDiagrams();
-                } else {
-                    throw new Error(data.detail || 'Error generating article');
+                // Hide loading state
+                document.getElementById('loading').classList.add('hidden');
+                
+                // Display the article with markdown rendering
+                const articleContent = document.getElementById('articleContent');
+                articleContent.innerHTML = marked.parse(data.article);
+                articleContent.classList.add('markdown-content');
+                document.getElementById('article').classList.remove('hidden');
+                
+                // Update metrics
+                if (data.metrics) {
+                    document.getElementById('hallucinationScore').textContent = 
+                        (data.metrics.hallucination_score * 100).toFixed(1) + '%';
+                    document.getElementById('relevanceScore').textContent = 
+                        (data.metrics.relevance_score * 100).toFixed(1) + '%';
+                    document.getElementById('toxicityScore').textContent = 
+                        (data.metrics.toxicity_score * 100).toFixed(1) + '%';
                 }
+                
+                // Render Mermaid diagrams
+                renderMermaidDiagrams();
+                
             } catch (error) {
-                document.getElementById('errorMessage').textContent = `Error: ${error.message}`;
-                document.getElementById('errorMessage').style.display = 'block';
-            } finally {
-                document.getElementById('loading').style.display = 'none';
+                console.error('Error:', error);
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('error').classList.remove('hidden');
+                document.getElementById('error').textContent = 
+                    'Error generating article. Please try again.';
             }
         });
     </script>
 </body>
-</html> 
+</html>
