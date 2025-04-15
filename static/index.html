@@ -4,235 +4,157 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Article Generator</title>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        .loading-spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-radius: 50%;
-            border-top: 4px solid #3498db;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .article-content {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .article-content pre {
-            background-color: #f8f9fa;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            overflow-x: auto;
-        }
-        .article-content code {
-            background-color: #f8f9fa;
-            padding: 0.2rem 0.4rem;
-            border-radius: 0.25rem;
-        }
-        .article-content img {
-            max-width: 100%;
-            height: auto;
-            border-radius: 0.5rem;
-        }
-        .mermaid {
-            background-color: #f8f9fa;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            margin: 1rem 0;
-        }
-        .tooltip {
-            position: relative;
-            display: inline-block;
-        }
-        .tooltip .tooltiptext {
-            visibility: hidden;
-            width: 200px;
-            background-color: #333;
-            color: #fff;
-            text-align: center;
-            border-radius: 6px;
-            padding: 5px;
-            position: absolute;
-            z-index: 1;
-            bottom: 125%;
-            left: 50%;
-            margin-left: -100px;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        .tooltip:hover .tooltiptext {
-            visibility: visible;
-            opacity: 1;
-        }
-        /* Add markdown styling */
-        .markdown-content {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 1rem;
-        }
-        .markdown-content h1 {
-            font-size: 2em;
-            font-weight: bold;
-            margin: 1em 0;
-        }
-        .markdown-content h2 {
-            font-size: 1.5em;
-            font-weight: bold;
-            margin: 0.83em 0;
-        }
-        .markdown-content h3 {
-            font-size: 1.17em;
-            font-weight: bold;
-            margin: 0.67em 0;
-        }
-        .markdown-content p {
-            margin: 1em 0;
-            line-height: 1.6;
-        }
-        .markdown-content ul, .markdown-content ol {
-            margin: 1em 0;
-            padding-left: 2em;
-        }
-        .markdown-content li {
-            margin: 0.5em 0;
-        }
-        .markdown-content code {
-            background-color: #f8f9fa;
-            padding: 0.2em 0.4em;
-            border-radius: 0.25em;
-            font-family: monospace;
-        }
-        .markdown-content pre {
-            background-color: #f8f9fa;
-            padding: 1em;
-            border-radius: 0.5em;
-            overflow-x: auto;
-            margin: 1em 0;
-        }
-        .markdown-content blockquote {
-            border-left: 4px solid #ddd;
-            padding-left: 1em;
-            margin: 1em 0;
-            color: #666;
-        }
-        .markdown-content img {
-            max-width: 100%;
-            height: auto;
-            margin: 1em 0;
-            border-radius: 0.5em;
-        }
-        .markdown-content table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1em 0;
-        }
-        .markdown-content th, .markdown-content td {
-            border: 1px solid #ddd;
-            padding: 0.5em;
-            text-align: left;
-        }
-        .markdown-content th {
-            background-color: #f8f9fa;
-        }
-    </style>
+    <link href="/static/dist/output.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen">
     <div class="container mx-auto px-4 py-8">
-        <!-- Header -->
         <header class="text-center mb-12">
-            <h1 class="text-4xl font-bold text-gray-800 mb-2">AI Article Generator</h1>
-            <p class="text-gray-600">Generate well-structured, SEO-optimized articles with AI</p>
+            <h1 class="text-4xl font-bold text-dark mb-4">AI Article Generator</h1>
+            <p class="text-gray-600">Generate well-researched, fact-checked articles with AI</p>
         </header>
 
-        <!-- Main Content -->
-        <div class="max-w-4xl mx-auto">
+        <main class="max-w-3xl mx-auto">
             <!-- Input Form -->
-            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-                <form id="articleForm" class="space-y-6">
-                    <div>
-                        <label for="topic" class="block text-sm font-medium text-gray-700 mb-1">
-                            Topic or URL
-                            <span class="tooltip">
-                                <i class="fas fa-info-circle text-blue-500 ml-1"></i>
-                                <span class="tooltiptext">Enter a topic or paste a URL to generate an article</span>
-                            </span>
-                        </label>
-                        <input type="text" id="topic" name="topic" required
-                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Enter a topic or paste a URL">
-                    </div>
+            <form id="articleForm" class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <div class="mb-6">
+                    <label for="topic" class="block text-sm font-medium text-gray-700 mb-2">Topic or URL</label>
+                    <input type="text" id="topic" name="topic" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                        placeholder="Enter a topic or paste a URL">
+                </div>
 
-                    <div class="flex flex-wrap gap-4">
-                        <label class="flex items-center space-x-2">
-                            <input type="checkbox" id="includeCode" name="includeCode"
-                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                            <span class="text-sm text-gray-700">Include Code Snippets</span>
-                        </label>
-                        <label class="flex items-center space-x-2">
-                            <input type="checkbox" id="includeDiagrams" name="includeDiagrams"
-                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                            <span class="text-sm text-gray-700">Include Diagrams</span>
-                        </label>
-                    </div>
+                <div class="flex space-x-4 mb-6">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="includeCode" name="includeCode"
+                            class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                        <span class="ml-2 text-sm text-gray-700">Include Code Snippets</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" id="includeDiagrams" name="includeDiagrams"
+                            class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                        <span class="ml-2 text-sm text-gray-700">Include Diagrams</span>
+                    </label>
+                </div>
 
-                    <button type="submit"
-                        class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200">
-                        Generate Article
-                    </button>
-                </form>
-            </div>
+                <button type="submit"
+                    class="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+                    Generate Article
+                </button>
+            </form>
 
             <!-- Loading State -->
             <div id="loading" class="hidden text-center py-8">
-                <div class="loading-spinner mx-auto mb-4"></div>
-                <p class="text-gray-600">Generating your article...</p>
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent"></div>
+                <p class="mt-4 text-gray-600">Generating your article...</p>
             </div>
 
-            <!-- Error Message -->
-            <div id="error" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-8"></div>
+            <!-- Error State -->
+            <div id="error" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative mb-8">
+                <span class="block sm:inline">Error generating article. Please try again.</span>
+            </div>
 
-            <!-- Generated Article -->
-            <div id="article" class="hidden bg-white rounded-lg shadow-md p-6">
+            <!-- Article Container -->
+            <div id="article-container" class="hidden bg-white rounded-lg shadow-md p-6">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold text-gray-800">Generated Article</h2>
+                    <h2 class="text-2xl font-bold text-dark">Generated Article</h2>
                     <div class="flex space-x-2">
-                        <button onclick="copyArticle()" class="text-gray-600 hover:text-gray-800">
-                            <i class="fas fa-copy"></i> Copy
+                        <button id="copyButton" class="text-primary hover:text-blue-600" aria-label="Copy article">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                            </svg>
                         </button>
-                        <button onclick="downloadArticle()" class="text-gray-600 hover:text-gray-800">
-                            <i class="fas fa-download"></i> Download
+                        <button id="downloadButton" class="text-primary hover:text-blue-600" aria-label="Download article">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                            </svg>
                         </button>
                     </div>
                 </div>
-                <div id="articleContent" class="article-content markdown-content"></div>
-                
+
+                <!-- Article Content -->
+                <div id="article-content" class="prose max-w-none"></div>
+
                 <!-- Evaluation Metrics -->
-                <div id="metrics" class="mt-8 p-4 bg-gray-50 rounded-lg">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Evaluation Metrics</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="bg-white p-4 rounded-lg shadow-sm">
-                            <div class="text-sm text-gray-600">Hallucination Score</div>
-                            <div id="hallucinationScore" class="text-2xl font-bold text-blue-600">-</div>
+                <div id="metrics" class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-gray-50 p-6 rounded-lg">
+                        <h3 class="text-lg font-semibold mb-4 text-dark">Quality Analysis</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <div class="flex items-center">
+                                        <span class="text-sm font-medium text-gray-700">Factual Accuracy</span>
+                                        <span class="ml-2 text-xs text-gray-500">(40%)</span>
+                                    </div>
+                                    <span id="hallucination-score" class="text-sm font-medium text-gray-700">-</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div id="hallucination-bar" class="bg-green-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1" id="hallucination-tip">Measures the factual correctness and reliability of the content</p>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <div class="flex items-center">
+                                        <span class="text-sm font-medium text-gray-700">Relevance</span>
+                                        <span class="ml-2 text-xs text-gray-500">(30%)</span>
+                                    </div>
+                                    <span id="relevance-score" class="text-sm font-medium text-gray-700">-</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div id="relevance-bar" class="bg-blue-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1" id="relevance-tip">Assesses how well the content matches the requested topic</p>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <div class="flex items-center">
+                                        <span class="text-sm font-medium text-gray-700">Toxicity</span>
+                                        <span class="ml-2 text-xs text-gray-500">(30%)</span>
+                                    </div>
+                                    <span id="toxicity-score" class="text-sm font-medium text-gray-700">-</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div id="toxicity-bar" class="bg-red-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1" id="toxicity-tip">Measures harmful or inappropriate content levels (lower is better)</p>
+                            </div>
+                            <div class="pt-2 border-t border-gray-200">
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-base font-semibold text-dark">Overall Quality</span>
+                                    <span id="quality-score" class="text-base font-semibold text-dark">-</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-3">
+                                    <div id="quality-bar" class="bg-primary h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1" id="quality-tip">Weighted average: Factual Accuracy (40%) + Relevance (30%) + (100% - Toxicity) (30%)</p>
+                            </div>
                         </div>
-                        <div class="bg-white p-4 rounded-lg shadow-sm">
-                            <div class="text-sm text-gray-600">Relevance Score</div>
-                            <div id="relevanceScore" class="text-2xl font-bold text-green-600">-</div>
-                        </div>
-                        <div class="bg-white p-4 rounded-lg shadow-sm">
-                            <div class="text-sm text-gray-600">Toxicity Score</div>
-                            <div id="toxicityScore" class="text-2xl font-bold text-red-600">-</div>
+                    </div>
+                    <div class="bg-gray-50 p-6 rounded-lg">
+                        <h3 class="text-lg font-semibold mb-4 text-dark">Content Statistics</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-white p-3 rounded-lg shadow-sm">
+                                <div class="text-sm text-gray-500">Word Count</div>
+                                <div id="word-count" class="text-xl font-semibold text-dark">-</div>
+                            </div>
+                            <div class="bg-white p-3 rounded-lg shadow-sm">
+                                <div class="text-sm text-gray-500">Reading Time</div>
+                                <div id="reading-time" class="text-xl font-semibold text-dark">-</div>
+                            </div>
+                            <div class="bg-white p-3 rounded-lg shadow-sm">
+                                <div class="text-sm text-gray-500">Code Blocks</div>
+                                <div id="code-blocks" class="text-xl font-semibold text-dark">-</div>
+                            </div>
+                            <div class="bg-white p-3 rounded-lg shadow-sm">
+                                <div class="text-sm text-gray-500">Diagrams</div>
+                                <div id="diagrams" class="text-xl font-semibold text-dark">-</div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </main>
     </div>
 
     <script>
@@ -240,54 +162,238 @@
         mermaid.initialize({
             startOnLoad: true,
             theme: 'default',
-            securityLevel: 'loose',
-            flowchart: {
-                useMaxWidth: false,
-                htmlLabels: true,
-                curve: 'basis'
-            }
+            securityLevel: 'loose'
         });
 
-        // Configure marked for markdown rendering
-        marked.setOptions({
-            breaks: true,
-            gfm: true,
-            headerIds: true,
-            mangle: false
-        });
+        // Format article content
+        function formatArticleContent(content) {
+            // Convert markdown to HTML with improved styling
+            let html = content
+                // Meta description with special styling
+                .replace(/---\nmeta_description: "(.*?)"\n---/g, 
+                    '<div class="bg-gray-50 border-l-4 border-primary p-4 mb-6 rounded-r-lg">' +
+                    '<p class="text-sm text-gray-600 italic">$1</p></div>')
+                
+                // Main title with special styling
+                .replace(/^# (.*$)/gm, 
+                    '<h1 class="text-4xl font-bold text-dark mt-8 mb-6 pb-4 border-b border-gray-200">$1</h1>')
+                
+                // Subheadings with improved hierarchy
+                .replace(/^## (.*$)/gm, 
+                    '<h2 class="text-2xl font-bold text-dark mt-8 mb-4 pb-2 border-b border-gray-100">$1</h2>')
+                .replace(/^### (.*$)/gm, 
+                    '<h3 class="text-xl font-semibold text-dark mt-6 mb-3">$1</h3>')
+                
+                // Text formatting with better typography
+                .replace(/\*\*(.*?)\*\*/g, 
+                    '<strong class="font-bold text-gray-900">$1</strong>')
+                .replace(/\*(.*?)\*/g, 
+                    '<em class="italic text-gray-700">$1</em>')
+                .replace(/`(.*?)`/g, 
+                    '<code class="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-gray-800">$1</code>')
+                .replace(/\[(.*?)\]\((.*?)\)/g, 
+                    '<a href="$2" class="text-primary hover:underline font-medium">$1</a>')
+                
+                // Paragraphs with improved readability
+                .replace(/\n\n/g, 
+                    '</p><p class="my-6 leading-relaxed text-gray-800 text-lg">')
+                .replace(/\n/g, '<br>');
 
-        // Function to render Mermaid diagrams
+            // Handle lists with better styling
+            html = html.replace(/^\s*[-*]\s(.*$)/gm, 
+                '<li class="ml-6 mb-3 text-gray-800 text-lg leading-relaxed">$1</li>')
+                .replace(/<li>.*?<\/li>/g, 
+                    '<ul class="list-disc pl-6 my-6 space-y-2">$&</ul>');
+
+            // Handle code blocks with syntax highlighting and language labels
+            html = html.replace(/```([\w]*)\n([\s\S]*?)\n```/g, (match, language, code) => {
+                const lang = language || 'plaintext';
+                return `
+                    <div class="my-8">
+                        <div class="flex items-center justify-between bg-gray-800 text-gray-300 px-4 py-2 rounded-t-lg">
+                            <span class="text-sm font-mono">${lang}</span>
+                            <button class="copy-code text-gray-400 hover:text-white" onclick="copyCode(this)">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <pre class="bg-gray-800 text-gray-100 p-6 rounded-b-lg overflow-x-auto shadow-lg"><code class="language-${lang} text-sm">${code}</code></pre>
+                    </div>`;
+            });
+
+            // Handle Mermaid diagrams with better presentation and controls
+            html = html.replace(/```mermaid\n([\s\S]*?)\n```/g, (match, diagram) => {
+                return `
+                    <div class="my-8">
+                        <div class="flex items-center justify-between bg-white border-b border-gray-200 px-4 py-2 rounded-t-lg">
+                            <span class="text-sm font-medium text-gray-700">Flow Diagram</span>
+                            <button class="text-gray-400 hover:text-gray-600" onclick="toggleDiagram(this)">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="mermaid-container bg-white p-6 rounded-b-lg border border-gray-200 shadow-sm">
+                            <div class="mermaid">${diagram}</div>
+                        </div>
+                    </div>`;
+            });
+
+            // Handle blockquotes with improved styling
+            html = html.replace(/^>\s(.*$)/gm, 
+                '<blockquote class="border-l-4 border-primary pl-6 italic my-6 text-gray-700 text-lg bg-gray-50 p-4 rounded-r-lg">$1</blockquote>');
+
+            // Handle tables with better formatting
+            html = html.replace(/\|(.*?)\|/g, (match) => {
+                const cells = match.split('|').filter(cell => cell.trim());
+                return cells.map(cell => `<td class="border px-4 py-3 text-gray-800">${cell.trim()}</td>`).join('');
+            });
+            html = html.replace(/^\|.*\|$/gm, (match) => {
+                return `<tr class="border-b border-gray-200">${match}</tr>`;
+            });
+            html = html.replace(/<tr>.*?<\/tr>/g, (match) => {
+                return `<table class="min-w-full border-collapse my-8 shadow-sm rounded-lg overflow-hidden">${match}</table>`;
+            });
+
+            // Add source attribution styling
+            html = html.replace(/\(Source: (.*?)\)/g, 
+                '<div class="text-sm text-gray-500 mt-2 italic">Source: $1</div>');
+
+            // Wrap the entire content in a container with proper typography
+            return `<div class="prose prose-lg max-w-none">${html}</div>`;
+        }
+
+        // Convert HTML to Markdown
+        function htmlToMarkdown(html) {
+            return html
+                // Convert headings
+                .replace(/<h1[^>]*>(.*?)<\/h1>/g, '# $1\n\n')
+                .replace(/<h2[^>]*>(.*?)<\/h2>/g, '## $1\n\n')
+                .replace(/<h3[^>]*>(.*?)<\/h3>/g, '### $1\n\n')
+                
+                // Convert paragraphs
+                .replace(/<p[^>]*>(.*?)<\/p>/g, '$1\n\n')
+                
+                // Convert lists
+                .replace(/<ul[^>]*>(.*?)<\/ul>/gs, (match, content) => {
+                    return content.replace(/<li[^>]*>(.*?)<\/li>/g, '- $1\n');
+                })
+                
+                // Convert code blocks
+                .replace(/<pre[^>]*><code[^>]*>(.*?)<\/code><\/pre>/gs, (match, code) => {
+                    return '```\n' + code + '\n```\n\n';
+                })
+                
+                // Convert Mermaid diagrams
+                .replace(/<div class="mermaid">(.*?)<\/div>/gs, (match, diagram) => {
+                    return '```mermaid\n' + diagram + '\n```\n\n';
+                })
+                
+                // Convert blockquotes
+                .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/g, '> $1\n\n')
+                
+                // Convert tables
+                .replace(/<table[^>]*>(.*?)<\/table>/gs, (match, content) => {
+                    const rows = content.match(/<tr[^>]*>(.*?)<\/tr>/g);
+                    if (!rows) return '';
+                    
+                    const header = rows[0].replace(/<td[^>]*>(.*?)<\/td>/g, '| $1 ');
+                    const separator = header.replace(/[^|]/g, '-');
+                    const body = rows.slice(1).map(row => 
+                        row.replace(/<td[^>]*>(.*?)<\/td>/g, '| $1 ')
+                    ).join('\n');
+                    
+                    return header + '\n' + separator + '\n' + body + '\n\n';
+                })
+                
+                // Convert inline formatting
+                .replace(/<strong[^>]*>(.*?)<\/strong>/g, '**$1**')
+                .replace(/<em[^>]*>(.*?)<\/em>/g, '*$1*')
+                .replace(/<code[^>]*>(.*?)<\/code>/g, '`$1`')
+                .replace(/<a[^>]*href="(.*?)"[^>]*>(.*?)<\/a>/g, '[$2]($1)')
+                
+                // Clean up
+                .replace(/<[^>]+>/g, '')
+                .replace(/\n{3,}/g, '\n\n')
+                .trim();
+        }
+
+        // Render Mermaid diagrams
         function renderMermaidDiagrams() {
-            const mermaidElements = document.querySelectorAll('.mermaid');
-            mermaidElements.forEach(element => {
-                try {
-                    mermaid.init(undefined, element);
-                } catch (e) {
-                    console.error('Error rendering Mermaid diagram:', e);
-                }
-            });
+            mermaid.init(undefined, '.mermaid');
         }
 
-        // Function to copy article content
-        function copyArticle() {
-            const articleContent = document.getElementById('articleContent').innerText;
-            navigator.clipboard.writeText(articleContent).then(() => {
-                alert('Article copied to clipboard!');
-            });
-        }
+        // Update evaluation metrics with improved weighted scoring
+        function updateEvaluationMetrics(metrics) {
+            // Quality scores with progress bars and animations
+            const hallucinationScore = metrics.quality_scores.hallucination * 100;
+            document.getElementById('hallucination-score').textContent = hallucinationScore.toFixed(1) + '%';
+            document.getElementById('hallucination-bar').style.width = hallucinationScore + '%';
+            document.getElementById('hallucination-tip').textContent = 
+                hallucinationScore >= 80 ? 'Excellent factual accuracy' :
+                hallucinationScore >= 60 ? 'Good factual accuracy' :
+                'Needs improvement in factual accuracy';
 
-        // Function to download article
-        function downloadArticle() {
-            const articleContent = document.getElementById('articleContent').innerText;
-            const blob = new Blob([articleContent], { type: 'text/markdown' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'generated-article.md';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            const relevanceScore = metrics.quality_scores.relevance * 100;
+            document.getElementById('relevance-score').textContent = relevanceScore.toFixed(1) + '%';
+            document.getElementById('relevance-bar').style.width = relevanceScore + '%';
+            document.getElementById('relevance-tip').textContent = 
+                relevanceScore >= 80 ? 'Highly relevant to the topic' :
+                relevanceScore >= 60 ? 'Moderately relevant' :
+                'Could be more focused on the topic';
+
+            const toxicityScore = metrics.quality_scores.toxicity * 100;
+            document.getElementById('toxicity-score').textContent = toxicityScore.toFixed(1) + '%';
+            document.getElementById('toxicity-bar').style.width = toxicityScore + '%';
+            document.getElementById('toxicity-tip').textContent = 
+                toxicityScore <= 20 ? 'Very clean and appropriate content' :
+                toxicityScore <= 40 ? 'Some potentially problematic content' :
+                'Contains significant problematic content';
+
+            // Calculate overall quality with specified weights
+            const overallQuality = (
+                hallucinationScore * 0.4 + // Factual Accuracy: 40% weight
+                relevanceScore * 0.3 +     // Relevance: 30% weight
+                (100 - toxicityScore) * 0.3 // Toxicity (inverted): 30% weight
+            );
+
+            document.getElementById('quality-score').textContent = overallQuality.toFixed(1) + '%';
+            document.getElementById('quality-bar').style.width = overallQuality + '%';
+            document.getElementById('quality-tip').textContent = 
+                overallQuality >= 80 ? 'Excellent overall quality' :
+                overallQuality >= 60 ? 'Good overall quality' :
+                'Needs improvement in quality';
+
+            // Add color feedback based on scores
+            const updateScoreColor = (element, score, isToxicity = false) => {
+                const color = isToxicity ? 
+                    (score <= 20 ? 'text-green-500' : score <= 40 ? 'text-yellow-500' : 'text-red-500') :
+                    (score >= 80 ? 'text-green-500' : score >= 60 ? 'text-yellow-500' : 'text-red-500');
+                element.classList.remove('text-gray-700', 'text-green-500', 'text-yellow-500', 'text-red-500');
+                element.classList.add(color);
+            };
+
+            updateScoreColor(document.getElementById('hallucination-score'), hallucinationScore);
+            updateScoreColor(document.getElementById('relevance-score'), relevanceScore);
+            updateScoreColor(document.getElementById('toxicity-score'), toxicityScore, true);
+            updateScoreColor(document.getElementById('quality-score'), overallQuality);
+
+            // Add weighted score breakdown
+            const breakdown = `
+                Factual Accuracy (40%): ${hallucinationScore.toFixed(1)}% × 0.4 = ${(hallucinationScore * 0.4).toFixed(1)}%\n
+                Relevance (30%): ${relevanceScore.toFixed(1)}% × 0.3 = ${(relevanceScore * 0.3).toFixed(1)}%\n
+                Toxicity (30%): ${(100 - toxicityScore).toFixed(1)}% × 0.3 = ${((100 - toxicityScore) * 0.3).toFixed(1)}%\n
+                Overall Quality: ${overallQuality.toFixed(1)}%
+            `;
+            console.log('Quality Score Breakdown:', breakdown);
+
+            // Content metrics
+            document.getElementById('word-count').textContent = metrics.content_metrics.word_count;
+            document.getElementById('reading-time').textContent = 
+                Math.ceil(metrics.content_metrics.reading_time_minutes) + ' min';
+            document.getElementById('code-blocks').textContent = metrics.content_metrics.code_block_count;
+            document.getElementById('diagrams').textContent = metrics.content_metrics.diagram_count;
         }
 
         // Handle form submission
@@ -301,7 +407,7 @@
             // Show loading state
             document.getElementById('loading').classList.remove('hidden');
             document.getElementById('error').classList.add('hidden');
-            document.getElementById('article').classList.add('hidden');
+            document.getElementById('article-container').classList.add('hidden');
             
             try {
                 const response = await fetch('/generate-article', {
@@ -312,12 +418,14 @@
                     body: JSON.stringify({
                         topic,
                         include_code: includeCode,
-                        include_diagrams: includeDiagrams
+                        include_diagrams: includeDiagrams,
+                        is_url: false
                     }),
                 });
                 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
                 }
                 
                 const data = await response.json();
@@ -325,33 +433,75 @@
                 // Hide loading state
                 document.getElementById('loading').classList.add('hidden');
                 
-                // Display the article with markdown rendering
-                const articleContent = document.getElementById('articleContent');
-                articleContent.innerHTML = marked.parse(data.article);
-                articleContent.classList.add('markdown-content');
-                document.getElementById('article').classList.remove('hidden');
-                
-                // Update metrics
-                if (data.metrics) {
-                    document.getElementById('hallucinationScore').textContent = 
-                        (data.metrics.hallucination_score * 100).toFixed(1) + '%';
-                    document.getElementById('relevanceScore').textContent = 
-                        (data.metrics.relevance_score * 100).toFixed(1) + '%';
-                    document.getElementById('toxicityScore').textContent = 
-                        (data.metrics.toxicity_score * 100).toFixed(1) + '%';
+                if (data.article) {
+                    const formattedContent = formatArticleContent(data.article);
+                    document.getElementById('article-content').innerHTML = formattedContent;
+                    renderMermaidDiagrams();
+                    
+                    // Update metrics if available
+                    if (data.metrics) {
+                        updateEvaluationMetrics(data.metrics);
+                    }
+                    
+                    document.getElementById('article-container').classList.remove('hidden');
+                } else {
+                    throw new Error('No article content received');
                 }
-                
-                // Render Mermaid diagrams
-                renderMermaidDiagrams();
                 
             } catch (error) {
                 console.error('Error:', error);
                 document.getElementById('loading').classList.add('hidden');
                 document.getElementById('error').classList.remove('hidden');
                 document.getElementById('error').textContent = 
-                    'Error generating article. Please try again.';
+                    error.message || 'Error generating article. Please try again.';
             }
         });
+
+        // Handle copy button
+        document.getElementById('copyButton').addEventListener('click', () => {
+            const content = document.getElementById('article-content').textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                const button = document.getElementById('copyButton');
+                button.innerHTML = '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+                setTimeout(() => {
+                    button.innerHTML = '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>';
+                }, 2000);
+            });
+        });
+
+        // Handle download button
+        document.getElementById('downloadButton').addEventListener('click', () => {
+            const content = document.getElementById('article-content').innerHTML;
+            const markdown = htmlToMarkdown(content);
+            const blob = new Blob([markdown], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'article.md';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // Add new utility functions for code and diagram handling
+        function copyCode(button) {
+            const codeBlock = button.closest('.my-8').querySelector('code');
+            const code = codeBlock.textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                button.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+                setTimeout(() => {
+                    button.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>';
+                }, 2000);
+            });
+        }
+
+        function toggleDiagram(button) {
+            const container = button.closest('.my-8').querySelector('.mermaid-container');
+            container.classList.toggle('hidden');
+            button.querySelector('svg').classList.toggle('transform');
+            button.querySelector('svg').classList.toggle('rotate-180');
+        }
     </script>
 </body>
 </html>

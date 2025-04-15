@@ -1,0 +1,14 @@
+{
+  "name": "ai-article-generator",
+  "version": "1.0.0",
+  "description": "AI Article Generator Frontend",
+  "scripts": {
+    "build": "tailwindcss -i ./static/src/input.css -o ./static/dist/output.css --minify",
+    "watch": "tailwindcss -i ./static/src/input.css -o ./static/dist/output.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.35"
+  }
+} 

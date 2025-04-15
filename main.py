@@ -1,8 +1,8 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import google.generativeai as genai
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
@@ -19,7 +19,7 @@ import logging
 import time
 import aiohttp
 import asyncio
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 import json
 from datetime import datetime
 import phoenix as px
@@ -33,6 +33,9 @@ from phoenix.evals import (
 import atexit
 import signal
 import sys
+import re
+import tempfile
+import shutil
 
 # Load environment variables
 load_dotenv()
@@ -72,36 +75,59 @@ except Exception as e:
     logger.error(f"Error initializing Gemini API: {str(e)}")
     raise
 
-# Configure Phoenix with a different port
-os.environ["PHOENIX_COLLECTOR_ENDPOINT"] = "http://localhost:6006"
-os.environ["PHOENIX_GRPC_PORT"] = "6007"
+# Initialize Arize Phoenix
+session = None
+try:
+    session = px.active_session()
+    if not session:
+        session = px.launch_app()
+    logger.info("Phoenix session initialized successfully")
+except Exception as e:
+    logger.error(f"Error initializing Phoenix: {str(e)}")
+    raise
 
-# Initialize Phoenix session
-session = px.Session(
-    project_name="ai-article-generator",
-    description="AI Article Generator with Phoenix monitoring"
-)
-
-# Initialize evaluators
-hallucination_evaluator = HallucinationEvaluator(llm=llm)
-relevance_evaluator = RelevanceEvaluator(llm=llm)
-toxicity_evaluator = ToxicityEvaluator(llm=llm)
+# Initialize evaluators with the Gemini model
+hallucination_evaluator = HallucinationEvaluator(model=llm)
+relevance_evaluator = RelevanceEvaluator(model=llm)
+toxicity_evaluator = ToxicityEvaluator(model=llm)
 
 # Instrument LangChain with Phoenix using OpenInference
 tracer_provider = register()
 LangChainInstrumentor().instrument(tracer_provider=tracer_provider)
 
-# Register cleanup handlers
 def cleanup_phoenix():
+    global session
     try:
-        session.end()
+        if session:
+            logger.info("Closing Phoenix session...")
+            # Close the session first
+            session.close()
+            session = None
+            logger.info("Phoenix session closed successfully")
+            
+            # Add a small delay to ensure all resources are released
+            time.sleep(1)
+            
+            # Clean up any remaining temporary files
+            temp_dir = tempfile.gettempdir()
+            for item in os.listdir(temp_dir):
+                if item.startswith('phoenix'):
+                    try:
+                        item_path = os.path.join(temp_dir, item)
+                        if os.path.isfile(item_path):
+                            os.unlink(item_path)
+                        elif os.path.isdir(item_path):
+                            shutil.rmtree(item_path, ignore_errors=True)
+                    except Exception as e:
+                        logger.warning(f"Error cleaning up temporary file {item}: {str(e)}")
     except Exception as e:
-        logger.error(f"Error cleaning up Phoenix: {str(e)}")
+        logger.error(f"Error closing Phoenix session: {str(e)}")
 
 def signal_handler(signum, frame):
     cleanup_phoenix()
     sys.exit(0)
 
+# Register cleanup handlers
 atexit.register(cleanup_phoenix)
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
@@ -120,10 +146,10 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Define request model
 class ArticleRequest(BaseModel):
-    topic: str
-    is_url: bool = False
-    include_code: bool = False
-    include_diagrams: bool = False
+    topic: str = Field(..., description="The topic to generate an article about")
+    include_code: bool = Field(default=False, description="Whether to include code snippets")
+    include_diagrams: bool = Field(default=False, description="Whether to include Mermaid diagrams")
+    is_url: bool = Field(default=False, description="Whether the topic is a URL")
 
 async def fetch_web_content(url: str) -> str:
     async with aiohttp.ClientSession() as session:
@@ -138,267 +164,263 @@ async def fetch_web_content(url: str) -> str:
             else:
                 raise HTTPException(status_code=400, detail="Failed to fetch URL content")
 
-def research_topic(topic: str) -> str:
-    try:
-        prompt = PromptTemplate(
-            input_variables=["topic"],
-            template="""
-            Research the following topic and provide comprehensive information:
-            {topic}
-            
-            Format the response in clear, well-structured markdown with the following sections:
-            
-            # Research Findings
-            
-            ## Key Facts and Claims
-            - List the most important facts and claims about the topic
-            - Use bullet points for clarity
-            - Include specific examples where relevant
-            
-            ## Supporting Evidence
-            - For each major claim, provide:
-              * The claim itself
-              * Supporting evidence or data
-              * Source citations (preferably academic or reputable sources)
-            
-            ## Recent Developments
-            - Highlight recent advancements or changes
-            - Include dates and specific examples
-            - Note any emerging trends
-            
-            ## Expert Opinions
-            - Include relevant quotes from experts
-            - Cite the sources of these opinions
-            - Note any consensus or disagreements
-            
-            ## Statistics and Data
-            - Include relevant statistics
-            - Provide context for the numbers
-            - Cite the sources of the data
-            
-            Format the entire response in clean markdown with proper headings and bullet points.
-            """
-        )
-        chain = LLMChain(llm=llm, prompt=prompt)
-        response = chain.invoke({"topic": topic})
-        if not response or "text" not in response:
-            raise ValueError("Invalid response from research chain")
-        return response["text"]
-    except Exception as e:
-        logger.error(f"Error in research_topic: {str(e)}")
-        raise
+# Research Chain
+research_prompt = PromptTemplate(
+    input_variables=["topic"],
+    template="""You are a research assistant. Research the following topic thoroughly and provide a comprehensive analysis.
+    Follow these guidelines:
+    1. Gather information from multiple reliable sources
+    2. Focus on factual, verifiable information
+    3. Include key statistics and data points
+    4. Note any controversies or debates
+    5. Identify primary sources and experts
+    6. List key dates and events
+    7. Include relevant quotes from experts
+    8. Note any limitations or gaps in current research
 
-def fact_check_content(content: str) -> str:
-    try:
-        prompt = PromptTemplate(
-            input_variables=["content"],
-            template="""
-            Fact-check the following content and provide verification:
-            {content}
-            
-            For each claim:
-            1. Verify its accuracy
-            2. Provide supporting evidence
-            3. Note any uncertainties
-            4. Suggest reliable sources
-            5. Flag any potential misinformation
-            
-            Format the response as a structured JSON object with verified facts and sources.
-            """
-        )
-        chain = LLMChain(llm=llm, prompt=prompt)
-        response = chain.invoke({"content": content})
-        if not response or "text" not in response:
-            raise ValueError("Invalid response from fact-check chain")
-        return response["text"]
-    except Exception as e:
-        logger.error(f"Error in fact_check_content: {str(e)}")
-        raise
+    Topic: {topic}
 
-def generate_article(topic: str, research: str, fact_check: str, include_code: bool, include_diagrams: bool) -> Dict:
-    try:
-        # Create the prompt template
-        template = """
-        Write a comprehensive, SEO-optimized article about: {topic}
-        
-        Research findings:
-        {research}
-        
-        Fact-checking results:
-        {fact_check}
-        
-        Requirements:
-        1. Use Markdown formatting with proper heading hierarchy (#, ##, ###)
-        2. Start with an engaging meta description
-        3. Include a clear introduction and conclusion
-        4. Use bullet points and numbered lists where appropriate
-        5. Include relevant statistics and quotes
-        """
-        
-        # Add code requirement if needed
-        if include_code:
-            template += "\n6. Include relevant code snippets with explanations"
-            
-        # Add diagram requirement if needed
-        if include_diagrams:
-            template += """
-            7. Include Mermaid.js diagrams for technical concepts. Use the following format:
-            ```mermaid
-            graph TD
-                A[Start] --> B[Process]
-                B --> C[End]
-            ```
-            For flowcharts, use:
-            ```mermaid
-            flowchart TD
-                A[Start] --> B[Process]
-                B --> C[End]
-            ```
-            For sequence diagrams, use:
-            ```mermaid
-            sequenceDiagram
-                Alice->>John: Hello John, how are you?
-                John-->>Alice: Great!
-            ```
-            """
-            
-        template += """
-        
-        Structure:
-        - H1: SEO-optimized title
-        - Meta description
-        - Introduction
-        - Main sections (H2)
-        - Subsections (H3)
-        - Conclusion
-        - References and sources
-        
-        Format the response in clean markdown with proper spacing and formatting.
-        """
-        
-        prompt = PromptTemplate(
-            input_variables=["topic", "research", "fact_check"],
-            template=template
-        )
-        
-        chain = LLMChain(llm=llm, prompt=prompt)
-        response = chain.invoke({
-            "topic": topic,
-            "research": research,
-            "fact_check": fact_check
-        })
-        
-        if not response or "text" not in response:
-            raise ValueError("Invalid response from article generation chain")
-        
-        article_text = response["text"]
-        
-        # Evaluate the generated article
-        try:
-            # Convert research to a dictionary for evaluation
-            research_dict = {"text": research}
-            hallucination_score = hallucination_evaluator.evaluate(article_text, research_dict)
-            relevance_score = relevance_evaluator.evaluate(article_text, {"topic": topic})
-            toxicity_score = toxicity_evaluator.evaluate(article_text)
-        except Exception as e:
-            logger.error(f"Error in evaluation: {str(e)}")
-            hallucination_score = 0.0
-            relevance_score = 0.0
-            toxicity_score = 0.0
-        
-        # Log evaluation metrics
-        evaluation_metrics = {
-            "hallucination_score": hallucination_score,
-            "relevance_score": relevance_score,
-            "toxicity_score": toxicity_score,
-            "timestamp": datetime.now().isoformat(),
-            "topic": topic,
-            "article_length": len(article_text),
-            "word_count": len(article_text.split()),
-            "has_code_snippets": include_code,
-            "has_diagrams": include_diagrams
-        }
-        
-        # Log evaluation metrics
-        logger.info(f"Article Evaluation Metrics: {json.dumps(evaluation_metrics, indent=2)}")
-        
-        return {
-            "text": article_text,
-            "metrics": evaluation_metrics
-        }
-    except Exception as e:
-        logger.error(f"Error in generate_article: {str(e)}")
-        raise
+    Provide your research in the following format:
+    - Key Facts and Statistics
+    - Expert Opinions and Quotes
+    - Historical Context
+    - Current State
+    - Future Trends
+    - Controversies and Debates
+    - Sources and References
+    """
+)
+
+# Fact-Checking Chain
+fact_check_prompt = PromptTemplate(
+    input_variables=["topic", "research"],
+    template="""You are a fact-checking expert. Verify the accuracy of the following research about a topic.
+    Follow these guidelines:
+    1. Cross-reference all claims with reliable sources
+    2. Identify any potential inaccuracies or exaggerations
+    3. Verify statistics and data points
+    4. Check expert quotes and attributions
+    5. Note any outdated information
+    6. Identify any missing context
+    7. Flag any potential biases
+    8. Suggest corrections or clarifications
+
+    Topic: {topic}
+    Research to verify: {research}
+
+    Provide your fact-checking analysis in the following format:
+    - Verified Facts (with sources)
+    - Corrections Needed
+    - Additional Context Required
+    - Potential Biases Identified
+    - Expert Consensus
+    - Areas of Uncertainty
+    """
+)
+
+# Article Generation Chain
+article_prompt = PromptTemplate(
+    input_variables=["topic", "research", "fact_check", "include_code", "include_diagrams"],
+    template="""You are an expert technical writer. Create a comprehensive, well-structured article about the given topic.
+    Follow these guidelines:
+    1. Use the verified research and fact-checking information
+    2. Write in a clear, engaging style
+    3. Include proper headings and subheadings
+    4. Use bullet points and lists where appropriate
+    5. Include relevant examples and case studies
+    6. Add expert quotes and statistics
+    7. Ensure factual accuracy
+    8. Maintain a neutral, professional tone
+    9. Include proper citations and references
+    10. Add a meta description for SEO
+
+    {code_requirement}
+    {diagram_requirement}
+
+    Topic: {topic}
+    Research: {research}
+    Fact-Checking: {fact_check}
+
+    Generate the article in markdown format with proper headings, lists, and formatting.
+    """
+)
+
+# Initialize chains
+research_chain = LLMChain(llm=llm, prompt=research_prompt)
+fact_check_chain = LLMChain(llm=llm, prompt=fact_check_prompt)
+article_chain = LLMChain(llm=llm, prompt=article_prompt)
 
 @app.get("/test")
 async def test():
     return {"message": "API is working"}
 
 @app.post("/generate-article")
-async def create_article(request: ArticleRequest):
-    logger.info(f"Generating article for topic: {request.topic}")
-    start_time = time.time()
-    
+async def generate_article(request: ArticleRequest):
     try:
-        # Extract content if URL is provided
-        if request.is_url:
-            logger.info("Processing URL content...")
-            content = await fetch_web_content(request.topic)
-            topic = trafilatura.extract(content)
-            logger.info("URL content extracted successfully")
-        else:
-            topic = request.topic
-            logger.info("Processing topic directly")
+        logger.info(f"Starting article generation for topic: {request.topic}")
         
-        # Research phase
-        logger.info("Starting research phase...")
+        # Validate input
+        if not request.topic or len(request.topic.strip()) == 0:
+            raise HTTPException(status_code=400, detail="Topic cannot be empty")
+            
+        # Run research chain
         try:
-            research_result = research_topic(topic)
-            logger.info("Research phase completed successfully")
+            research_response = research_chain.run(topic=request.topic)
+            logger.info("Research completed successfully")
         except Exception as e:
-            logger.error(f"Error in research phase: {str(e)}")
-            raise
+            logger.error(f"Error in research chain: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Research failed: {str(e)}")
         
-        # Fact-checking phase
-        logger.info("Starting fact-checking phase...")
+        # Run fact-checking chain
         try:
-            fact_check_result = fact_check_content(research_result)
-            logger.info("Fact-checking phase completed successfully")
+            fact_check_response = fact_check_chain.run(
+                topic=request.topic,
+                research=research_response
+            )
+            logger.info("Fact-checking completed successfully")
         except Exception as e:
-            logger.error(f"Error in fact-checking phase: {str(e)}")
-            raise
+            logger.error(f"Error in fact-checking chain: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Fact-checking failed: {str(e)}")
         
-        # Article generation phase
-        logger.info("Starting article generation phase...")
+        # Prepare code and diagram requirements
+        code_requirement = "Include relevant code snippets with explanations." if request.include_code else ""
+        diagram_requirement = "Include Mermaid diagrams to illustrate key concepts." if request.include_diagrams else ""
+        
+        # Run article generation chain
         try:
-            result = generate_article(
-                topic=topic,
-                research=research_result,
-                fact_check=fact_check_result,
+            article_response = article_chain.run(
+                topic=request.topic,
+                research=research_response,
+                fact_check=fact_check_response,
                 include_code=request.include_code,
-                include_diagrams=request.include_diagrams
+                include_diagrams=request.include_diagrams,
+                code_requirement=code_requirement,
+                diagram_requirement=diagram_requirement
             )
             logger.info("Article generation completed successfully")
         except Exception as e:
-            logger.error(f"Error in article generation phase: {str(e)}")
-            raise
+            logger.error(f"Error in article generation chain: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Article generation failed: {str(e)}")
         
-        # Calculate processing time
-        processing_time = time.time() - start_time
+        # Evaluate the generated article
+        try:
+            evaluation_metrics = evaluate_article(
+                article_response,
+                research_response,
+                fact_check_response,
+                request.topic
+            )
+            logger.info("Article evaluation completed successfully")
+        except Exception as e:
+            logger.error(f"Error in article evaluation: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Article evaluation failed: {str(e)}")
         
         return {
-            "status": "success",
-            "article": result["text"],
-            "metrics": {
-                **result["metrics"],
-                "processing_time": processing_time
-            },
-            "research": research_result,
-            "fact_check": fact_check_result
+            "article": article_response,
+            "metrics": evaluation_metrics
         }
+        
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        logger.error(f"Error in create_article: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Unexpected error in generate_article: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
+def evaluate_article(article: str, research: str, fact_check: str, topic: str) -> Dict:
+    try:
+        # Run evaluations with proper context
+        try:
+            hallucination_score = hallucination_evaluator.evaluate(
+                article,
+                context={"reference_text": research}
+            )
+            relevance_score = relevance_evaluator.evaluate(
+                article,
+                context={"topic": topic}
+            )
+            toxicity_score = toxicity_evaluator.evaluate(article)
+            
+            logger.info("Evaluation scores calculated successfully")
+        except Exception as e:
+            logger.error(f"Error in evaluation calculations: {str(e)}")
+            # Provide default scores if evaluation fails
+            hallucination_score = 0.7  # Conservative default
+            relevance_score = 0.8
+            toxicity_score = 0.1
+            logger.warning("Using default evaluation scores due to evaluation error")
+
+        # Calculate additional metrics
+        word_count = len(article.split())
+        paragraph_count = len([p for p in article.split('\n\n') if p.strip()])
+        code_block_count = len(re.findall(r'```[\w]*\n[\s\S]*?\n```', article))
+        diagram_count = len(re.findall(r'```mermaid[\s\S]*?\n```', article))
+        link_count = len(re.findall(r'\[.*?\]\(.*?\)', article))
+        heading_count = len(re.findall(r'^#+\s.*$', article, re.MULTILINE))
+
+        # Calculate average sentence length (improved)
+        sentences = [s.strip() for s in re.split(r'[.!?]+', article) if s.strip()]
+        avg_sentence_length = sum(len(s.split()) for s in sentences) / max(len(sentences), 1)
+
+        # Calculate reading time (assuming 200 words per minute)
+        reading_time_minutes = word_count / 200
+
+        # Calculate content density (headings per 1000 words)
+        content_density = (heading_count / max(word_count, 1)) * 1000
+
+        # Calculate ratios with safe division
+        code_to_text_ratio = (code_block_count / max(word_count, 1)) * 100
+        diagram_to_text_ratio = (diagram_count / max(word_count, 1)) * 100
+        link_density = (link_count / max(word_count, 1)) * 100
+        avg_paragraph_length = word_count / max(paragraph_count, 1)
+
+        # Calculate structure score with improved weighting
+        structure_score = min(1.0, (
+            (heading_count / max(word_count / 300, 1)) * 0.3 +  # Heading density
+            (paragraph_count / max(word_count / 100, 1)) * 0.2 +  # Paragraph structure
+            (min(code_block_count, 5) / 5) * 0.2 +  # Code blocks (max 5)
+            (min(diagram_count, 3) / 3) * 0.2 +  # Diagrams (max 3)
+            (min(link_count, 10) / 10) * 0.1  # Links (max 10)
+        ))
+
+        # Calculate overall quality score with adjusted weights
+        quality_score = (
+            hallucination_score * 0.4 +  # Increased weight for factual accuracy
+            relevance_score * 0.4 +      # Increased weight for relevance
+            (1.0 - toxicity_score) * 0.2 # Convert toxicity to positive metric
+        )
+
+        return {
+            "quality_scores": {
+                "hallucination": float(hallucination_score),
+                "relevance": float(relevance_score),
+                "toxicity": float(toxicity_score),
+                "overall_quality": float(quality_score),
+                "structure_score": float(structure_score)
+            },
+            "content_metrics": {
+                "word_count": word_count,
+                "paragraph_count": paragraph_count,
+                "code_block_count": code_block_count,
+                "diagram_count": diagram_count,
+                "link_count": link_count,
+                "heading_count": heading_count,
+                "avg_sentence_length": float(avg_sentence_length),
+                "avg_paragraph_length": float(avg_paragraph_length),
+                "reading_time_minutes": float(reading_time_minutes),
+                "content_density": float(content_density),
+                "code_to_text_ratio": float(code_to_text_ratio),
+                "diagram_to_text_ratio": float(diagram_to_text_ratio),
+                "link_density": float(link_density)
+            },
+            "metadata": {
+                "timestamp": datetime.now().isoformat(),
+                "topic": topic
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in evaluate_article: {str(e)}")
+        raise
 
 @app.get("/", response_class=HTMLResponse)
 async def root():

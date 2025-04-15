@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+    .btn-primary {
+        @apply bg-primary text-white py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
+    }
+    
+    .input-field {
+        @apply w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary;
+    }
+    
+    .card {
+        @apply bg-white rounded-lg shadow-md p-6;
+    }
+}
+
+/* Custom typography styles */
+.prose {
+    @apply text-gray-800;
+}
+
+.prose h1 {
+    @apply text-3xl font-bold text-dark mt-8 mb-4;
+}
+
+.prose h2 {
+    @apply text-2xl font-bold text-dark mt-6 mb-3;
+}
+
+.prose h3 {
+    @apply text-xl font-semibold text-dark mt-4 mb-2;
+}
+
+.prose p {
+    @apply my-4 leading-relaxed;
+}
+
+.prose ul {
+    @apply list-disc pl-6 my-4;
+}
+
+.prose li {
+    @apply mb-2;
+}
+
+.prose code {
+    @apply bg-gray-100 px-1 py-0.5 rounded text-sm font-mono;
+}
+
+.prose pre {
+    @apply bg-gray-800 text-gray-100 p-4 rounded-lg overflow-x-auto my-6;
+}
+
+.prose blockquote {
+    @apply border-l-4 border-primary pl-4 italic my-4 text-gray-700;
+}
+
+.prose table {
+    @apply min-w-full border-collapse my-4;
+}
+
+.prose th, .prose td {
+    @apply border px-4 py-2;
+}
+
+.prose a {
+    @apply text-primary hover:underline;
+}
+
+/* Mermaid diagram container */
+.mermaid-container {
+    @apply my-6 bg-white p-4 rounded-lg border border-gray-200;
+}
+
+/* Code block container */
+.code-container {
+    @apply my-6;
+}
+
+/* Article container */
+.article-container {
+    @apply bg-white rounded-lg shadow-md p-6;
+} 
